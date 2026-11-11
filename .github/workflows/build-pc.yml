@@ -1,0 +1,41 @@
+name: Build PC
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: SL-x-TnT/FortniteReplayDecompressor
+          ref: 1eba62f3a8d776e67106925d09a5f4db8610cef5
+          path: decompressor
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Scanner de replays
+        continue-on-error: true
+        shell: pwsh
+        run: dotnet publish scanner/ReplayScan.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o scanner-bin 2>&1 | Tee-Object -FilePath scanner-log.txt
+      - name: Garantir le dossier scanner
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force scanner-bin | Out-Null
+          if (!(Test-Path scanner-bin/ReplayScan.exe)) { New-Item -ItemType File scanner-bin/ReplayScan.exe | Out-Null }
+          if (!(Test-Path scanner-log.txt)) { "pas de journal" | Out-File scanner-log.txt }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scanner-log
+          path: scanner-log.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coffres-pc
+          path: dist/Coffres.exe
