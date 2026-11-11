@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><title>Overlay</title>
+<style>
+@font-face{font-family:Sora;src:url(fonts/sora.woff2);font-weight:100 900}
+@font-face{font-family:Inter;src:url(fonts/inter.woff2);font-weight:100 900}
+html,body{margin:0;background:transparent;overflow:hidden;font-family:Inter,"Segoe UI",sans-serif;color:#fff6dc;user-select:none}
+.ov{position:relative;display:flex;align-items:center;gap:12px;height:100px;margin:5px;padding:0 16px 12px;box-sizing:border-box;border-radius:24px;background:linear-gradient(135deg,rgba(34,24,6,.86),rgba(12,9,3,.86));border:1px solid rgba(255,214,120,.55);box-shadow:0 8px 28px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.14)}
+.ov.ok{border-color:#ffd86b;box-shadow:0 0 22px rgba(255,200,70,.55),0 8px 28px rgba(0,0,0,.55)}
+.c{height:50px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
+.m{display:flex;flex-direction:column;align-items:flex-start;min-width:62px}
+.m b{font:800 2.7rem/1 Sora,sans-serif;background:linear-gradient(135deg,#ffe08a,#e0a43a);-webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+.m span{font-size:.72rem;color:#c9b98a;font-weight:600;letter-spacing:.04em}
+.s{display:flex;gap:12px;margin-left:auto;padding-left:12px;border-left:1px solid rgba(255,214,120,.25)}
+.s div{display:flex;flex-direction:column;align-items:center}
+.s b{font:700 1rem Sora,sans-serif;font-variant-numeric:tabular-nums}
+.s i{font-style:normal;font-size:.6rem;color:#c9b98a;text-transform:uppercase;letter-spacing:.08em}
+.pb{position:absolute;left:16px;right:16px;bottom:9px;display:flex;align-items:center;gap:8px}
+.pb div{flex:1;height:5px;border-radius:99px;background:rgba(255,255,255,.16);overflow:hidden}
+.pb i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#ffe08a,#e0a43a);transition:width .5s}
+.pb span{font:700 .62rem Sora,sans-serif;color:#c9b98a;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.mv{outline:2px dashed #ffd86b;outline-offset:-3px;cursor:move}
+.hint{display:none;position:absolute;left:0;right:0;top:-1px;text-align:center;font-size:.6rem;font-weight:700;letter-spacing:.06em;color:#ffd86b;background:rgba(0,0,0,.6);border-radius:24px 24px 0 0;padding:2px 0}
+.mv .hint{display:block}
+html[data-skin=noir] .ov{background:linear-gradient(135deg,rgba(18,18,18,.92),rgba(0,0,0,.92));border-color:rgba(255,255,255,.35)}
+html[data-skin=noir] .m b{background:linear-gradient(135deg,#fff,#a8a8a8);-webkit-background-clip:text;background-clip:text}
+html[data-skin=noir] .pb i{background:linear-gradient(90deg,#fff,#bdbdbd)}
+html[data-skin=blanc] .ov{background:rgba(255,255,255,.94);border-color:rgba(0,0,0,.25);color:#000;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+html[data-skin=blanc] .m b{background:linear-gradient(135deg,#000,#555);-webkit-background-clip:text;background-clip:text}
+html[data-skin=blanc] .m span,html[data-skin=blanc] .s i,html[data-skin=blanc] .pb span{color:#6e6e73}
+html[data-skin=blanc] .s{border-color:rgba(0,0,0,.15)}
+html[data-skin=blanc] .pb div{background:rgba(0,0,0,.1)}
+html[data-skin=blanc] .pb i{background:linear-gradient(90deg,#555,#000)}
+html[data-skin=noir] .c,html[data-skin=blanc] .c{filter:grayscale(1) drop-shadow(0 4px 8px rgba(0,0,0,.4))}
+.pop{animation:pop .25s ease}@keyframes pop{40%{transform:scale(1.18)}}
+</style></head>
+<body><div class="ov" id="ov"><div class="hint">GLISSE POUR DÉPLACER</div><img class="c" src="chest.webp" alt="">
+<div class="m"><b id="n">0</b><span id="g">/ 10</span></div>
+<div class="s"><div><b id="day">0</b><i>jour</i></div><div><b id="tot">0</b><i>saison</i></div><div><b id="rate">—</b><i>/min</i></div></div>
+<div class="pb"><div><i id="pf"></i></div><span id="pp">0 %</span></div></div>
+<script>
+let S={cur:0,goalGame:10,day:0,goalDay:50,total:0,start:null},prev=0;
+const $=id=>document.getElementById(id);
+function draw(){
+  $("n").textContent=S.cur;$("g").textContent="/ "+S.goalGame;
+  $("day").textContent=S.day+"/"+S.goalDay;$("tot").textContent=S.total;
+  const el=S.start?Date.now()-S.start:0;
+  $("rate").textContent=(S.start&&S.cur&&el>=30000)?(S.cur/(el/6e4)).toFixed(1).replace(".",","):"—";
+  const pc=Math.round(S.day/S.goalDay*100);$("pf").style.width=Math.min(pc,100)+"%";$("pp").textContent=pc+" %";document.documentElement.dataset.skin=S.skin||"or";
+  $("ov").classList.toggle("ok",S.cur>=S.goalGame&&S.cur>0);
+  if(S.cur!==prev){const e=$("n");e.classList.remove("pop");void e.offsetWidth;e.classList.add("pop");prev=S.cur;}
+}
+if(window.fnBridge){
+  window.fnBridge.onState(s=>{S=s;draw();});
+  window.fnBridge.onMode(m=>$("ov").classList.toggle("mv",m));
+  let down=false;
+  addEventListener("mousedown",()=>{down=true;window.fnBridge.drag("start");});
+  addEventListener("mousemove",()=>{if(down)window.fnBridge.drag("move");});
+  addEventListener("mouseup",()=>{if(down){down=false;window.fnBridge.drag("end");}});
+}
+setInterval(draw,1000);draw();
+</script></body></html>

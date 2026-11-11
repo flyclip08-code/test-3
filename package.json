@@ -1,0 +1,43 @@
+{
+  "name": "coffres-fortnite",
+  "version": "1.0.0",
+  "description": "Compteur de coffres Fortnite avec overlay",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.coffres.fortnite",
+    "productName": "Coffres",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "overlay.html",
+      "chest.webp",
+      "fgold.webp",
+      "fonts/**",
+      "build/icon.ico"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "build/icon.ico"
+    },
+    "artifactName": "Coffres.exe",
+    "extraResources": [
+      {
+        "from": "scanner-bin/ReplayScan.exe",
+        "to": "ReplayScan.exe"
+      }
+    ]
+  }
+}

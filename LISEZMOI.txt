@@ -1,0 +1,17 @@
+COFFRES — app PC + overlay Fortnite + comptage automatique par replays
+
+FABRIQUER L'APPLI (.exe)
+1. Dépôt GitHub : envoie-y TOUT le contenu de ce dossier (dossier caché .github compris).
+2. Onglet « Actions » > « Build PC » > attends ~8 min.
+3. Artifacts : télécharge « coffres-pc » (Coffres.exe) et, si l'analyse de replays ne marche pas,
+   aussi « scanner-log » (envoie-moi son contenu).
+
+REPLAYS AUTOMATIQUES
+- Onglet Saison > « Analyser mes replays » compte les coffres de tes dernières games.
+- Ensuite, chaque game terminée est comptée toute seule (le replay n'existe qu'à la fin de la partie).
+- Le chiffre est une estimation : corrige avec + / - dans l'historique.
+- « Copier le diagnostic » : colle-le moi pour que j'ajuste le comptage.
+
+OVERLAY (plein écran fenêtré dans Fortnite)
+F9 +1 | F10 -1 | F11 terminer | F8 afficher/masquer | F6 déplacer (glisse, puis F6 pour verrouiller)
+Les touches se changent dans l'onglet Saison.

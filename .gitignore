@@ -1,0 +1,6 @@
+node_modules
+dist
+decompressor
+scanner-bin
+scanner/bin
+scanner/obj
