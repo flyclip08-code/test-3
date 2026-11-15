@@ -1,4 +1,4 @@
-nname: Build PC
+name: Build PC
 on:
   push:
   workflow_dispatch:
@@ -17,11 +17,13 @@ jobs:
           dotnet-version: 10.0.x
       - name: Cibler .NET 10 uniquement
         shell: pwsh
-        run: (Get-Content decompressor/Directory.Build.props) -replace 'net10.0;net11.0','net10.0' | Set-Content decompressor/Directory.Build.props
+        run: |
+          (Get-Content decompressor/Directory.Build.props) -replace 'net10.0;net11.0','net10.0' | Set-Content decompressor/Directory.Build.props
       - name: Scanner de replays
         continue-on-error: true
         shell: pwsh
-        run: dotnet publish scanner/ReplayScan.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o scanner-bin 2>&1 | Tee-Object -FilePath scanner-log.txt
+        run: |
+          dotnet publish scanner/ReplayScan.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o scanner-bin 2>&1 | Tee-Object -FilePath scanner-log.txt
       - name: Garantir le dossier scanner
         shell: pwsh
         run: |
