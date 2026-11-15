@@ -1,4 +1,4 @@
-name: Build PC
+nname: Build PC
 on:
   push:
   workflow_dispatch:
@@ -9,12 +9,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: SL-x-TnT/FortniteReplayDecompressor
-          ref: 1eba62f3a8d776e67106925d09a5f4db8610cef5
+          repository: Shiqan/FortniteReplayDecompressor
+          ref: 05d224eb6babccf4aed10eacd16059818226cf9a
           path: decompressor
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
+      - name: Cibler .NET 10 uniquement
+        shell: pwsh
+        run: (Get-Content decompressor/Directory.Build.props) -replace 'net10.0;net11.0','net10.0' | Set-Content decompressor/Directory.Build.props
       - name: Scanner de replays
         continue-on-error: true
         shell: pwsh
