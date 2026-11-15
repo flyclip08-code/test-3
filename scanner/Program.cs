@@ -1,8 +1,8 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using FortniteReplayReader.Models;
 using FortniteReplayReader.Models.NetFieldExports;
+using FortniteReplayReader.Models.NetFieldExports.Items;
 using Unreal.Core.Contracts;
 using Unreal.Core.Models;
 using Unreal.Core.Models.Enums;
@@ -11,57 +11,62 @@ class ChestReader : FortniteReplayReader.ReplayReader
 {
     public double Radius = 800;
     public int Mine, Far, SearchedEvents, NoLocation, NoOwner, ChestActors, ZeroLocChests;
-    public readonly Dictionary<uint, (string Path, double X, double Y, double Z)> Actors = new();
-    public readonly HashSet<uint> Seen = new();
     public readonly List<double> Distances = new();
     public readonly Dictionary<string, int> Archetypes = new();
+    readonly HashSet<uint> seen = new();
+    readonly Dictionary<uint, uint> pawnState = new();
+    uint? recorderState;
+    FVector? ownerLoc;
     static readonly Regex Interesting = new("chest|container|treasure|loot|cache|crate|barrel|vault|relic", RegexOptions.IgnoreCase);
 
-    public ChestReader() : base(null, new FortniteReplaySettings { IgnoreContainers = false }) { }
+    public ChestReader() : base(null, ParseMode.Debug) { }
 
-    protected override void OnChannelActorRead(uint channel, Actor actor)
+    protected override void OnChannelOpened(uint channelIndex, NetworkGUID? actor)
     {
-        base.OnChannelActorRead(channel, actor);
-        string path = null;
-        if (actor.Archetype != null) GuidCache.NetGuidToPathName.TryGetValue(actor.Archetype.Value, out path);
-        if (path == null) return;
-        var v = actor.Location;
-        double x = v != null ? v.X : 0, y = v != null ? v.Y : 0, z = v != null ? v.Z : 0;
-        Actors[channel] = (path, x, y, z);
-        Seen.Remove(channel);
-        if (Interesting.IsMatch(path))
+        base.OnChannelOpened(channelIndex, actor);
+        seen.Remove(channelIndex);
+        var ch = Channels[channelIndex];
+        if (ch?.Actor == null) return;
+        if (_netGuidCache.TryGetPathName(ch.ArchetypeId ?? 0, out var path) && Interesting.IsMatch(path))
         {
             Archetypes[path] = Archetypes.TryGetValue(path, out var n) ? n + 1 : 1;
             if (path.Contains("chest", StringComparison.OrdinalIgnoreCase))
             {
                 ChestActors++;
-                if (x == 0 && y == 0 && z == 0) ZeroLocChests++;
+                var l = ch.Actor.Location;
+                if (l == null || (l.X == 0 && l.Y == 0 && l.Z == 0)) ZeroLocChests++;
             }
         }
     }
 
-    protected override void OnChannelClosed(uint channel)
+    protected override void OnExportRead(uint channelIndex, INetFieldExportGroup? exportGroup)
     {
-        Actors.Remove(channel);
-        Seen.Remove(channel);
-        base.OnChannelClosed(channel);
-    }
-
-    protected override void OnExportRead(uint channel, INetFieldExportGroup exportGroup)
-    {
-        base.OnExportRead(channel, exportGroup);
-        if (exportGroup is BaseContainer bc && bc.bAlreadySearched == true)
+        base.OnExportRead(channelIndex, exportGroup);
+        switch (exportGroup)
         {
-            SearchedEvents++;
-            if (!Seen.Add(channel)) return;
-            if (!Actors.TryGetValue(channel, out var a)) { NoLocation++; return; }
-            var owner = Replay.GameInformation.Players.FirstOrDefault(p => p.IsPlayersReplay);
-            var loc = owner?.LastKnownLocation?.Location;
-            if (loc == null) { NoOwner++; return; }
-            double dx = a.X - loc.X, dy = a.Y - loc.Y, dz = a.Z - loc.Z;
-            double d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-            Distances.Add(d);
-            if (d <= Radius) Mine++; else Far++;
+            case GameState gs:
+                if (gs.RecorderPlayerState != null) recorderState = gs.RecorderPlayerState.Value;
+                break;
+            case PlayerPawn pawn:
+                if (pawn.PlayerState.HasValue) pawnState[channelIndex] = pawn.PlayerState.Value;
+                if (pawn.ReplicatedMovement.HasValue
+                    && recorderState.HasValue
+                    && pawnState.TryGetValue(channelIndex, out var st) && st == recorderState.Value)
+                {
+                    ownerLoc = pawn.ReplicatedMovement.Value.Location;
+                }
+                break;
+            case BaseContainer bc when bc.bAlreadySearched:
+                SearchedEvents++;
+                if (!seen.Add(channelIndex)) break;
+                var loc = Channels[channelIndex]?.Actor?.Location;
+                if (loc == null) { NoLocation++; break; }
+                if (ownerLoc == null) { NoOwner++; break; }
+                double dx = loc.X - ownerLoc.X, dy = loc.Y - ownerLoc.Y, dz = loc.Z - ownerLoc.Z;
+                double d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                Distances.Add(d);
+                if (d <= Radius) Mine++; else Far++;
+                break;
         }
     }
 }
@@ -89,14 +94,14 @@ static class Program
         {
             var reader = new ChestReader { Radius = radius };
             using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var replay = reader.ReadReplay(stream, ParseType.Full);
-            var owner = replay.GameInformation.Players.FirstOrDefault(p => p.IsPlayersReplay);
+            var replay = reader.ReadReplay(stream);
+            var owner = replay.PlayerData?.FirstOrDefault(p => p.IsReplayOwner);
             return new
             {
                 file = Path.GetFileName(file),
-                timestamp = replay.Info?.Timestamp.ToString("o"),
-                lengthSec = (replay.Info?.LengthInMs ?? 0) / 1000.0,
-                owner = owner?.DisplayName,
+                timestamp = replay.Info.Timestamp.ToString("o"),
+                lengthSec = replay.Info.LengthInMs / 1000.0,
+                owner = owner?.PlayerName,
                 ownerFound = owner != null,
                 placement = owner?.Placement,
                 chests = reader.Mine,
@@ -109,7 +114,7 @@ static class Program
                     noOwnerLocation = reader.NoOwner,
                     chestActors = reader.ChestActors,
                     chestActorsAtZero = reader.ZeroLocChests,
-                    players = replay.GameInformation.Players.Count,
+                    players = replay.PlayerData?.Count() ?? 0,
                     nearestDistances = reader.Distances.OrderBy(d => d).Take(40).Select(d => Math.Round(d)).ToList(),
                     archetypes = reader.Archetypes.OrderByDescending(k => k.Value).Take(30).ToDictionary(k => k.Key, k => k.Value),
                 },
@@ -117,7 +122,12 @@ static class Program
         }
         catch (Exception e)
         {
-            return new { file = Path.GetFileName(file), error = e.GetType().Name + ": " + e.Message };
+            return new
+            {
+                file = Path.GetFileName(file),
+                error = e.GetType().Name + ": " + e.Message,
+                where = (e.StackTrace ?? "").Split('\n').Take(4).Select(l => l.Trim()).ToArray(),
+            };
         }
     }
 }
