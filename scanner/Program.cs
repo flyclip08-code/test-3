@@ -56,7 +56,7 @@ class ChestReader : FortniteReplayReader.ReplayReader
                     ownerLoc = pawn.ReplicatedMovement.Value.Location;
                 }
                 break;
-            case BaseContainer bc when bc.bAlreadySearched:
+            case BaseContainer bc when bc.bAlreadySearched && (bc is Chest || bc is FactionChest):
                 SearchedEvents++;
                 if (!seen.Add(channelIndex)) break;
                 var loc = Channels[channelIndex]?.Actor?.Location;
